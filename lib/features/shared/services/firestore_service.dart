@@ -25,24 +25,34 @@ class FirestoreService {
 
   /// Stream of user's favorite links
   Stream<List<LinkItem>> getFavoriteLinks(String userId) {
+    // Avoid requiring a composite index by removing server-side orderBy.
+    // We sort client-side by createdAt descending after fetching favorites.
     return _userLinksCollection(userId)
         .where('favorite', isEqualTo: true)
-        .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => LinkItem.fromFirestore(doc))
-            .toList());
+        .map((snapshot) {
+          final items = snapshot.docs
+              .map((doc) => LinkItem.fromFirestore(doc))
+              .toList();
+          items.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return items;
+        });
   }
 
   /// Stream of links by category
   Stream<List<LinkItem>> getLinksByCategory(String userId, String categoryId) {
+    // Avoid requiring a composite index by removing server-side orderBy.
+    // We sort client-side by createdAt descending after filtering by category.
     return _userLinksCollection(userId)
         .where('categoryId', isEqualTo: categoryId)
-        .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => LinkItem.fromFirestore(doc))
-            .toList());
+        .map((snapshot) {
+          final items = snapshot.docs
+              .map((doc) => LinkItem.fromFirestore(doc))
+              .toList();
+          items.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return items;
+        });
   }
 
   /// Add a new link
@@ -134,5 +144,66 @@ class FirestoreService {
         .doc(userId)
         .snapshots()
         .map((doc) => doc.data()?['notepad'] ?? '');
+  }
+
+  // ====== User Profile ======
+
+  /// Get user profile
+  Future<Map<String, dynamic>> getUserProfile(String userId) async {
+    final doc = await _firestore.collection('users').doc(userId).get();
+    if (!doc.exists) {
+      return {
+        'name': '',
+        'username': '',
+        'bio': '',
+        'profileImageUrl': null,
+        'createdAt': Timestamp.now(),
+        'updatedAt': Timestamp.now(),
+      };
+    }
+    return doc.data() ?? {};
+  }
+
+  /// Update user profile
+  Future<void> updateUserProfile(String userId, {
+    String? name,
+    String? username,
+    String? bio,
+    String? profileImageUrl,
+  }) async {
+    final updates = <String, dynamic>{
+      'updatedAt': Timestamp.now(),
+    };
+    
+    if (name != null) updates['name'] = name;
+    if (username != null) updates['username'] = username;
+    if (bio != null) updates['bio'] = bio;
+    if (profileImageUrl != null) updates['profileImageUrl'] = profileImageUrl;
+    
+    await _firestore.collection('users').doc(userId).set(
+      updates,
+      SetOptions(merge: true),
+    );
+  }
+
+  /// Stream of user profile
+  Stream<Map<String, dynamic>> getUserProfileStream(String userId) {
+    return _firestore
+        .collection('users')
+        .doc(userId)
+        .snapshots()
+        .map((doc) {
+          if (!doc.exists) {
+            return {
+              'name': '',
+              'username': '',
+              'bio': '',
+              'profileImageUrl': null,
+              'createdAt': Timestamp.now(),
+              'updatedAt': Timestamp.now(),
+            };
+          }
+          return doc.data() ?? {};
+        });
   }
 }
