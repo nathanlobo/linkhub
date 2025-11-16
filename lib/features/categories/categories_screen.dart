@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../shared/providers/firestore_providers.dart';
 import '../auth/auth_controller.dart';
+import 'category_links_screen.dart';
 
 class CategoriesScreen extends ConsumerWidget {
   const CategoriesScreen({super.key});
@@ -119,6 +120,17 @@ class CategoriesScreen extends ConsumerWidget {
                     icon: const Icon(Icons.delete_outline),
                     onPressed: () => _deleteCategory(context, ref, category.id),
                   ),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => CategoryLinksScreen(
+                          categoryId: category.id,
+                          categoryName: category.name,
+                        ),
+                      ),
+                    );
+                  },
                 ),
               );
             },

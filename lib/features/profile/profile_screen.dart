@@ -1,8 +1,7 @@
-import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import '../auth/auth_controller.dart';
 import '../shared/providers/firestore_providers.dart';
 
@@ -45,19 +44,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
       setState(() => _isUploading = true);
 
-      // Upload to Firebase Storage
-      final storageRef = FirebaseStorage.instance
-          .ref()
-          .child('profile_images')
-          .child('${user.uid}.jpg');
+      // Read image as bytes
+      final imageBytes = await image.readAsBytes();
+      
+      // Convert to base64 string to store directly in Firestore (no Storage needed)
+      final base64Image = base64Encode(imageBytes);
+      final dataUrl = 'data:image/jpeg;base64,$base64Image';
 
-      await storageRef.putFile(File(image.path));
-      final imageUrl = await storageRef.getDownloadURL();
-
-      // Update Firestore
+      // Update Firestore with base64 image
       await ref.read(firestoreServiceProvider).updateUserProfile(
             user.uid,
-            profileImageUrl: imageUrl,
+            profileImageUrl: dataUrl,
           );
 
       if (mounted) {
@@ -186,10 +183,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     CircleAvatar(
                       radius: 64,
                       backgroundColor: Theme.of(context).colorScheme.primary,
-                      backgroundImage: profileImageUrl != null
-                          ? NetworkImage(profileImageUrl)
+                      backgroundImage: profileImageUrl != null && profileImageUrl.isNotEmpty
+                          ? (profileImageUrl.startsWith('data:image')
+                              ? MemoryImage(base64Decode(profileImageUrl.split(',')[1]))
+                              : NetworkImage(profileImageUrl)) as ImageProvider
                           : null,
-                      child: profileImageUrl == null
+                      child: profileImageUrl == null || profileImageUrl.isEmpty
                           ? Text(
                               name.isNotEmpty ? name[0].toUpperCase() : 'U',
                               style: const TextStyle(fontSize: 48, color: Colors.white),
