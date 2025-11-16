@@ -7,6 +7,7 @@ import '../categories/categories_screen.dart';
 import '../notepad/notepad_screen.dart';
 import 'home_screen.dart';
 import 'add_edit_link_sheet.dart';
+import '../auth/auth_controller.dart';
 
 class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key});
@@ -70,13 +71,37 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     });
   }
 
+  Future<void> _showLogoutDialog(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Logout'),
+        content: const Text('Are you sure you want to logout?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Logout', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await ref.read(authControllerProvider.notifier).signOut();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('LinkHub'),
         actions: [
-          // Overflow menu (three dots) for Notepad
+          // Overflow menu (three dots) for Notepad and Logout
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
             onSelected: (value) {
@@ -87,6 +112,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                     builder: (context) => const NotepadScreen(),
                   ),
                 );
+              } else if (value == 'logout') {
+                _showLogoutDialog(context, ref);
               }
             },
             itemBuilder: (context) => [
@@ -97,6 +124,17 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                     Icon(Icons.note_outlined),
                     SizedBox(width: 8),
                     Text('Link Notepad'),
+                  ],
+                ),
+              ),
+              const PopupMenuDivider(),
+              const PopupMenuItem(
+                value: 'logout',
+                child: Row(
+                  children: [
+                    Icon(Icons.logout, color: Colors.red),
+                    SizedBox(width: 8),
+                    Text('Logout', style: TextStyle(color: Colors.red)),
                   ],
                 ),
               ),
